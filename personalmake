@@ -1,0 +1,151 @@
+# g++ -o test test.cpp -lraylib -framework OpenGL -framework OpenAL -framework Cocoa
+
+CFLAGS = -o $@$(EXT) $< $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) -D$(PLATFORM)
+
+
+# Define required raylib variables
+PROJECT_NAME       ?= raylib_examples
+RAYLIB_VERSION     ?= 2.0.0
+RAYLIB_API_VERSION ?= 1
+RAYLIB_PATH        ?= ..
+
+# Define default options
+
+# One of PLATFORM_DESKTOP, PLATFORM_RPI, PLATFORM_ANDROID, PLATFORM_WEB
+PLATFORM           ?= PLATFORM_DESKTOP
+
+# Locations of your newly installed library and associated headers. See ../src/Makefile
+# On Linux, if you have installed raylib but cannot compile the examples, check that
+# the *_INSTALL_PATH values here are the same as those in src/Makefile or point to known locations.
+# To enable system-wide compile-time and runtime linking to libraylib.so, run ../src/$ sudo make install RAYLIB_LIBTYPE_SHARED.
+# To enable compile-time linking to a special version of libraylib.so, change these variables here.
+# To enable runtime linking to a special version of libraylib.so, see EXAMPLE_RUNTIME_PATH below.
+# If there is a libraylib in both EXAMPLE_RUNTIME_PATH and RAYLIB_INSTALL_PATH, at runtime,
+# the library at EXAMPLE_RUNTIME_PATH, if present, will take precedence over the one at RAYLIB_INSTALL_PATH.
+# RAYLIB_INSTALL_PATH should be the desired full path to libraylib. No relative paths.
+DESTDIR ?= /usr/local
+RAYLIB_INSTALL_PATH ?= $(DESTDIR)/lib
+# RAYLIB_H_INSTALL_PATH locates the installed raylib header and associated source files.
+RAYLIB_H_INSTALL_PATH ?= $(DESTDIR)/include
+
+# Library type used for raylib: STATIC (.a) or SHARED (.so/.dll)
+RAYLIB_LIBTYPE        ?= STATIC
+
+# Build mode for project: DEBUG or RELEASE
+RAYLIB_BUILD_MODE     ?= RELEASE
+
+# Use external GLFW library instead of rglfw module
+# TODO: Review usage on Linux. Target version of choice. Switch on -lglfw or -lglfw3
+USE_EXTERNAL_GLFW     ?= FALSE
+
+# Use Wayland display server protocol on Linux desktop
+# by default it uses X11 windowing system
+USE_WAYLAND_DISPLAY   ?= FALSE
+
+ifeq ($(PLATFORM),PLATFORM_DESKTOP)
+    ifeq ($(PLATFORM_OS),WINDOWS)
+        RAYLIB_RELEASE_PATH = $(RAYLIB_PATH)/release/libs/win32/mingw32
+    endif
+    ifeq ($(PLATFORM_OS),LINUX)
+        RAYLIB_RELEASE_PATH = $(RAYLIB_PATH)/release/libs/linux
+    endif
+    ifeq ($(PLATFORM_OS),OSX)
+        RAYLIB_RELEASE_PATH = $(RAYLIB_PATH)/release/libs/osx
+    endif
+    ifeq ($(PLATFORM_OS),BSD)
+        RAYLIB_RELEASE_PATH = $(RAYLIB_PATH)/release/libs/bsd
+    endif
+endif
+
+
+# Define default C compiler: gcc
+# NOTE: define g++ compiler if using C++
+CC = gcc
+CPP= g++
+
+ifeq ($(PLATFORM),PLATFORM_DESKTOP)
+    ifeq ($(PLATFORM_OS),OSX)
+        # OSX default compiler
+        CC = clang
+    endif
+    ifeq ($(PLATFORM_OS),BSD)
+        # FreeBSD, OpenBSD, NetBSD, DragonFly default compiler
+        CC = clang
+    endif
+endif
+ifeq ($(PLATFORM),PLATFORM_RPI)
+    ifeq ($(USE_RPI_CROSS_COMPILER),TRUE)
+        # Define RPI cross-compiler
+        #CC = armv6j-hardfloat-linux-gnueabi-gcc
+        CC = $(RPI_TOOLCHAIN)/bin/arm-linux-gnueabihf-gcc
+    endif
+endif
+
+ifeq ($(PLATFORM),PLATFORM_DESKTOP)
+    ifeq ($(PLATFORM_OS),LINUX)
+        MAKE = make
+    endif
+endif
+
+
+# Define compiler flags:
+#  -O1                  defines optimization level
+#  -g                   enable debugging
+#  -s                   strip unnecessary data from build
+#  -Wall                turns on most, but not all, compiler warnings
+#  -std=c99             defines C language mode (standard C from 1999 revision)
+#  -std=gnu99           defines C language mode (GNU C from 1999 revision)
+#  -Wno-missing-braces  ignore invalid warning (GCC bug 53119)
+#  -D_DEFAULT_SOURCE    use with -std=c99 on Linux and PLATFORM_WEB, required for timespec
+CFLAGS += -O1 -s -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces
+
+# Additional flags for compiler (if desired)
+#CFLAGS += -Wextra -Wmissing-prototypes -Wstrict-prototypes
+ifeq ($(PLATFORM),PLATFORM_DESKTOP)
+    ifeq ($(PLATFORM_OS),WINDOWS)
+        # resource file contains windows executable icon and properties
+        # -Wl,--subsystem,windows hides the console window
+        CFLAGS += $(RAYLIB_PATH)/raylib.rc.o -Wl,--subsystem,windows
+    endif
+    ifeq ($(PLATFORM_OS),LINUX)
+        ifeq ($(RAYLIB_BUILD_MODE),DEBUG)
+            CFLAGS += -g
+            #CC = clang
+        endif
+        ifeq ($(RAYLIB_LIBTYPE),STATIC)
+        CFLAGS += -D_DEFAULT_SOURCE
+        endif
+        ifeq ($(RAYLIB_LIBTYPE),SHARED)
+        # Explicitly enable runtime link to libraylib.so
+        CFLAGS += -Wl,-rpath,$(EXAMPLE_RUNTIME_PATH)
+        endif
+    endif
+endif
+ifeq ($(PLATFORM),PLATFORM_RPI)
+    CFLAGS += -std=gnu99
+endif
+
+
+# Define include paths for required headers.
+# Precedence: immediately local, raysan5 provided sources
+# NOTE: Several external required libraries (stb and others)
+INCLUDE_PATHS = -I. -I$(RAYLIB_PATH)/release/include -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external
+
+# Define additional directories containing required header files
+ifeq ($(PLATFORM),PLATFORM_RPI)
+    # RPI required libraries
+    INCLUDE_PATHS += -I/opt/vc/include
+    INCLUDE_PATHS += -I/opt/vc/include/interface/vmcs_host/linux
+    INCLUDE_PATHS += -I/opt/vc/include/interface/vcos/pthreads
+endif
+ifeq ($(PLATFORM),PLATFORM_DESKTOP)
+    ifeq ($(PLATFORM_OS),BSD)
+        # Consider -L$(RAYLIB_H_INSTALL_PATH)
+        INCLUDE_PATHS += -I/usr/local/include
+    endif
+    ifeq ($(PLATFORM_OS),LINUX)
+        # Reset everything.
+        # Precedence: immediately local, installed version, raysan5 provided libs -I$(RAYLIB_H_INSTALL_PATH) -I$(RAYLIB_PATH)/release/include
+        INCLUDE_PATHS = -I$(RAYLIB_H_INSTALL_PATH) -isystem. -isystem$(RAYLIB_PATH)/src -isystem$(RAYLIB_PATH)/release/include -isystem$(RAYLIB_PATH)/src/external
+    endif
+endif
