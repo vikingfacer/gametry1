@@ -2,10 +2,10 @@
 // probability combat system still doable but orientation needs figuring out + angle from target + distance
 // -this an be done with collision detection
 
-#include "./raylib.h"
+#include "raylib.h"
 #include "userInlib.h"
 
-Rectangle LoadedArea = {2000, 2000};
+Rectangle LoadedArea = {1000, 1000};
 
 Rectangle Screen = {800, 800};
 int screenWidth = 800;
@@ -65,7 +65,11 @@ int main(int argc, char const *argv[])
 	    ClearBackground(RAYWHITE);
 
 		BeginMode2D(camera);
+
 			DrawTexture(imgTex, 0, 0, WHITE);
+			DrawTexture(imgTex, 1020, 1020, WHITE);
+			DrawTexture(imgTex, 20, 1000, WHITE);
+			DrawTexture(imgTex, 1000, 0, WHITE);
 
 			// DrawText("test", 0,0, 11, RED); //(const char *text, int posX, int posY, int fontSize, Color color);
 			DrawRectangleRec(player, YELLOW);
