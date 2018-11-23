@@ -1,7 +1,22 @@
 
+OS = $(shell uname)
 
-LINKLIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+# graphics stuff OS specific
+ifeq ($(OS), Darwin)
+	LINKLIBS = -lraylib -framework OpenGL -framework OpenAL -framework Cocoa 
+else
+	LINKLIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+endif
+
+flags = -std=c++14
+
+LINKLIBS += #Other libs to link
+
+
 CC = g++ 
+
+headers= userInlib.h
+
 source = test.cpp
 
 
@@ -10,8 +25,8 @@ source = test.cpp
 
 all: test
 
-test: test.cpp
-	$(CC) $< -o $@ $(LINKLIBS) 
+test: $(source) $(headers)
+	$(CC) $(flags) $< -o $@ $(LINKLIBS) 
 
 
 clean:
